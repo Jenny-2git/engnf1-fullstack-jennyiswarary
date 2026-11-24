@@ -407,6 +407,17 @@ router.get("/:id", authenticateToken, async (req, res) => {
 
 
 router.patch("/:id", authenticateToken, async (req, res) => {
+
+    // Admin authorization
+    if (req.user.role !== "ADMIN") {
+        return res.status(403).json({
+            error: {
+                code: "FORBIDDEN",
+                message: "Admin access is required"
+            }
+        });
+    }
+
     const { id } = req.params;
     const allowedFields = ["category", "priority", "status", "assigneeId"];
     const client = await pool.connect();

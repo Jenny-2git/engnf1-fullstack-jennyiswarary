@@ -105,7 +105,6 @@ function AdminBookings() {
     return (
         <div className="dashboard-content">
             <h1>Booking Management</h1>
-            <p>Review and manage resource booking requests.</p>
 
             <div className="filter-bar">
                 <select

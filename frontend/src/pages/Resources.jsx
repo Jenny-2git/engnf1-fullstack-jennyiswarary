@@ -55,7 +55,6 @@ function Resources() {
     return (
         <div className="dashboard-content">
             <h1>Resource Management</h1>
-            <p>Find available rooms, laboratories and equipment.</p>
 
             <div className="filter-bar">
                 <input

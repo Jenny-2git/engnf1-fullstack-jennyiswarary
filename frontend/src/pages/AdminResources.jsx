@@ -125,7 +125,6 @@ function AdminResources() {
     return (
         <main className="page-container">
             <h1>Resource Management</h1>
-            <p>Add and manage rooms, labs, and equipment.</p>
 
             {error && <p className="error-message">{error}</p>}
             {message && <p className="success-message">{message}</p>}

@@ -82,9 +82,7 @@ function TicketQueue() {
 
             <h1>Triage Queue</h1>
 
-            <p>
-                Search, filter and monitor incoming support tickets.
-            </p>
+
 
             {/* Search and filters */}
             <div className="filter-bar">

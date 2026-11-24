@@ -100,9 +100,7 @@ function MyBookings() {
 
             <h1>My Bookings</h1>
 
-            <p>
-                View and manage your resource booking requests.
-            </p>
+ 
 
             {/* Booking status filter */}
             <div className="filter-bar">

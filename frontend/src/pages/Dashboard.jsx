@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
@@ -7,7 +8,6 @@ function Dashboard() {
 
     const [stats, setStats] = useState(null);
     const [tickets, setTickets] = useState([]);
-    const [error, setError] = useState("");
     const [loading, setLoading] = useState(true);
 
     const user = JSON.parse(localStorage.getItem("user") || "null");
@@ -30,7 +30,7 @@ function Dashboard() {
                     return;
                 }
 
-                setError("Unable to load dashboard information.");
+                console.error("Unable to load dashboard:", err);
             } finally {
                 setLoading(false);
             }
@@ -39,73 +39,184 @@ function Dashboard() {
         loadDashboard();
     }, [navigate]);
 
-    function handleLogout() {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        navigate("/login");
+    if (loading) {
+        return (
+            <div className="dashboard-loading">
+                <div className="loading-spinner"></div>
+                <p>Preparing your dashboard...</p>
+            </div>
+        );
     }
 
-    if (loading) return <p>Loading dashboard...</p>;
+const statCards = [
+    {
+        title: "Total Tickets",
+        value: stats?.totalTickets ?? 0,
+        color: "blue"
+    },
+    {
+        title: "Reviewed Tickets",
+        value: stats?.reviewedCount ?? 0,
+        color: "green"
+    },
+    {
+        title: "Model Agreement",
+        value: `${stats?.modelAgreementRate ?? 0}%`,
+        color: "purple"
+    }
+];
 
     return (
-        <div className="dashboard">
-            <header className="dashboard-header">
-                <h1>TriageSync</h1>
-
-                <div>
-                    <span>Welcome, {user?.name || "User"}</span>
-                    <button onClick={handleLogout}>Logout</button>
-                </div>
-            </header>
-
-            <main className="dashboard-content">
-                <h2>Dashboard Overview</h2>
-                <p>Monitor your support tickets and activity.</p>
-
-                {error && <p className="error-message">{error}</p>}
-
-                {stats && (
-                    <div className="stats-grid">
-                        <div className="stat-card">
-                            <h3>Total Tickets</h3>
-                            <p>{stats.totalTickets ?? 0}</p>
-                        </div>
-
-                        <div className="stat-card">
-                            <h3>Reviewed Tickets</h3>
-                            <p>{stats.reviewedCount ?? 0}</p>
-                        </div>
-
-                        <div className="stat-card">
-                            <h3>Model Agreement</h3>
-                            <p>{stats.modelAgreementRate ?? 0}%</p>
-                        </div>
+        <div className="dashboard-page">
+            {/* Statistics */}
+            <section className="dashboard-section">
+                <div className="section-heading">
+                    <div>
+                        <h2>Performance Overview</h2>
+                       
                     </div>
-                )}
+                    <span className="live-indicator">
+                        <span></span>
+                    </span>
+                </div>
 
-                <h2>Recent Tickets</h2>
+                <div className="stats-grid">
+                    {statCards.map((card) => (
+                        <div className="stat-card" key={card.title}>
+                            
+
+                            <div className="stat-information">
+                                <p>{card.title}</p>
+                                <h3>{card.value}</h3>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </section>
+
+            {/* Quick actions */}
+            <section className="dashboard-section">
+                <div className="section-heading">
+                    <div>
+                        <h2>Quick Actions</h2>
+                        
+                    </div>
+                </div>
+
+                <div className="quick-actions-grid">
+                    <button
+                        className="quick-action-card"
+                        onClick={() => navigate("/tickets")}
+                    >
+                        
+                        <span>
+                            <strong>View Tickets</strong>
+                            
+                        </span>
+                        
+                    </button>
+
+                    <button
+                        className="quick-action-card"
+                        onClick={() => navigate("/resources")}
+                    >
+                        <span>
+                            <strong>Browse Resources</strong>
+                        </span>
+                    </button>
+
+                    <button
+                        className="quick-action-card"
+                        onClick={() => navigate("/my-bookings")}
+                    >
+                        <span>
+                            <strong>My Bookings</strong>
+                        </span>
+                    </button>
+
+                    {user?.role === "ADMIN" && (
+                        <button
+                            className="quick-action-card"
+                            onClick={() => navigate("/admin/bookings")}
+                        >
+                            <span>
+                                <strong>Admin Panel</strong>
+                            </span>
+                        </button>
+                    )}
+                </div>
+            </section>
+
+            {/* Recent tickets */}
+            <section className="dashboard-section recent-section">
+                <div className="section-heading">
+                    <div>
+                        <h2>Recent Tickets</h2>
+                  
+                    </div>
+
+                    <button
+                        className="text-button"
+                        onClick={() => navigate("/tickets")}
+                    >
+                        View all tickets 
+                    </button>
+                </div>
 
                 {tickets.length === 0 ? (
-                    <p>No tickets found.</p>
+                    <div className="empty-state">
+                        <h3>No tickets found</h3>
+                        
+                    </div>
                 ) : (
-                    <div className="ticket-list">
+                    <div className="recent-tickets-list">
                         {tickets.map((ticket) => (
-                            <div className="ticket-card" key={ticket.id}>
-                                <h3>{ticket.subject}</h3>
-                                <p>Category: {ticket.category}</p>
-                                <p>Priority: {ticket.priority}</p>
-                                <p>Status: {ticket.status}</p>
+                            <div
+                                className="recent-ticket-card"
+                                key={ticket.id}
+                                onClick={() => navigate(`/tickets/${ticket.id}`)}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(event) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                        event.preventDefault();
+                                        navigate(`/tickets/${ticket.id}`);
+                                    }
+                                }}
+                            >
+                                <div className="ticket-main-info">
+                                    <div className="ticket-avatar">
+                                        T
+                                    </div>
+
+                                    <div>
+                                        <h3>{ticket.subject || "Untitled ticket"}</h3>
+                                        <p>
+                                            {ticket.category || "Uncategorized"}
+                                            {" · "}
+                                            Ticket #{ticket.id}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="ticket-meta">
+                                    <span className={`priority-badge ${(ticket.priority || "normal").toLowerCase()}`}>
+                                        {ticket.priority || "Normal"}
+                                    </span>
+
+                                    <span className={`status-badge ${(ticket.status || "unknown").toLowerCase().replace(/\s+/g, "-")}`}>
+                                        {ticket.status || "Unknown"}
+                                    </span>
+
+                                    <span className="ticket-arrow">→</span>
+                                </div>
                             </div>
                         ))}
                     </div>
                 )}
+            </section>
 
-                {user?.role === "ADMIN" && (
-                    <button onClick={() => navigate("/admin/bookings")}>
-                        Manage Bookings
-                    </button>
-                )}
-            </main>
+            
         </div>
     );
 }

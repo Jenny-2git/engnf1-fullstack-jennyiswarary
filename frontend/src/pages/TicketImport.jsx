@@ -66,10 +66,7 @@ function TicketImport() {
     return (
         <main className="page-container">
             <h1>Import Tickets</h1>
-            <p>
-                Submit ticket data as JSON. The backend classifies new tickets
-                automatically and handles existing external IDs.
-            </p>
+          
 
             {error && <p className="error-message">{error}</p>}
 
