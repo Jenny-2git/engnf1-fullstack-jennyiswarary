@@ -196,6 +196,13 @@ router.post("/", authenticateToken, async (req, res) => {
         }
 
         // 11. Maximum three future active bookings per user
+
+        // Lock the user's row to protect the three-booking limit
+        await client.query(
+            "SELECT id FROM users WHERE id = $1 FOR UPDATE",
+            [req.user.id]
+        );
+        
         const userBookings = await client.query(
             `SELECT COUNT(*)::int AS count
              FROM bookings
