@@ -56,6 +56,7 @@ router.get("/", authenticateToken, async (req, res) => {
             : Number(((agreed / total) * 100).toFixed(2));
 
         return res.status(200).json({
+            totalTickets: total,
             byCategory: categoryResult.rows,
             byPriority: priorityResult.rows,
             byStatus: statusResult.rows,
