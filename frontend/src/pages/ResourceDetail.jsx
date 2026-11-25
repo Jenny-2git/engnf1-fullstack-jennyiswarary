@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
@@ -8,7 +7,6 @@ function ResourceDetail() {
     const navigate = useNavigate();
 
     const [resource, setResource] = useState(null);
-    const [bookings, setBookings] = useState([]);
     const [from, setFrom] = useState("");
     const [to, setTo] = useState("");
     const [purpose, setPurpose] = useState("");
@@ -48,42 +46,20 @@ function ResourceDetail() {
         };
     }, [id]);
 
-    async function checkAvailability(event) {
+    async function createBooking(event) {
         event.preventDefault();
         setError("");
         setMessage("");
-        setBookings([]);
 
         if (!from || !to) {
             setError("Please select both start and end times.");
             return;
         }
 
-        try {
-            const response = await api.get(
-                `/resources/${id}/availability`,
-                {
-                    params: {
-                        from: new Date(from).toISOString(),
-                        to: new Date(to).toISOString()
-                    }
-                }
-            );
-
-            setBookings(response.data.bookings || []);
-            setMessage("Availability information loaded.");
-        } catch (err) {
-            setError(
-                err.response?.data?.error?.message ||
-                "Unable to check availability."
-            );
+        if (new Date(to) <= new Date(from)) {
+            setError("End time must be after start time.");
+            return;
         }
-    }
-
-    async function createBooking(event) {
-        event.preventDefault();
-        setError("");
-        setMessage("");
 
         try {
             await api.post("/bookings", {
@@ -95,7 +71,6 @@ function ResourceDetail() {
 
             setMessage("Booking request submitted successfully.");
             setPurpose("");
-            await checkAvailability(event);
         } catch (err) {
             setError(
                 err.response?.data?.error?.message ||
@@ -136,12 +111,12 @@ function ResourceDetail() {
             </div>
 
             <div className="ticket-detail-card">
-                <h2>Check Availability</h2>
+                <h2>Request a Booking</h2>
 
                 {error && <p className="error-message">{error}</p>}
                 {message && <p className="success-message">{message}</p>}
 
-                <form onSubmit={checkAvailability} className="review-form">
+                <form onSubmit={createBooking} className="review-form">
                     <label>Start time</label>
                     <input
                         type="datetime-local"
@@ -158,29 +133,6 @@ function ResourceDetail() {
                         required
                     />
 
-                    <button type="submit">Check Availability</button>
-                </form>
-
-                {bookings.length === 0 && message && (
-                    <p>No conflicting bookings found for this period.</p>
-                )}
-
-                {bookings.map((booking) => (
-                    <div className="audit-event" key={booking.id}>
-                        <p>
-                            {new Date(booking.startTime).toLocaleString()}
-                            {" — "}
-                            {new Date(booking.endTime).toLocaleString()}
-                        </p>
-                        <p>Status: {booking.status}</p>
-                    </div>
-                ))}
-            </div>
-
-            <div className="ticket-detail-card">
-                <h2>Request a Booking</h2>
-
-                <form onSubmit={createBooking} className="review-form">
                     <label>Purpose</label>
                     <input
                         type="text"
@@ -202,3 +154,4 @@ function ResourceDetail() {
 }
 
 export default ResourceDetail;
+
