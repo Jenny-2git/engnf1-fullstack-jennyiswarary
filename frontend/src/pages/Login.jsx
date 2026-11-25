@@ -50,8 +50,6 @@ function Login() {
         <div className="login-container">
             <div className="login-card">
                 <h1>TriageSync</h1>
-                <p>Sign in to manage support tickets and resources.</p>
-
                 {error && <div className="error-message">{error}</div>}
 
                 <form onSubmit={handleSubmit}>

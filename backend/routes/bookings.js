@@ -138,14 +138,13 @@ router.post("/", authenticateToken, async (req, res) => {
         });
     }
 
-    const client = await pool.connect();
+        let client;
 
-    try {
-        await client.query("BEGIN");
+        try {
+            client = await pool.connect();
 
+            await client.query("BEGIN");
         // 9. Lock the resource row.
-        // Other booking requests for this resource must wait until
-        // this transaction finishes.
         const resourceResult = await client.query(
             `SELECT id, is_active
              FROM resources
@@ -278,21 +277,29 @@ router.post("/", authenticateToken, async (req, res) => {
             booking: bookingResult.rows[0]
         });
 
-    } catch (error) {
-        await client.query("ROLLBACK");
-
-        console.error("Booking creation error:", error.message);
-
-        return res.status(500).json({
-            error: {
-                code: "INTERNAL_ERROR",
-                message: "Could not create booking"
+        } catch (error) {
+            if (client) {
+                try {
+                    await client.query("ROLLBACK");
+                } catch (rollbackError) {
+                    console.error("Rollback error:", rollbackError.message);
+                }
             }
-        });
 
-    } finally {
-        client.release();
-    }
+            console.error("Cancel booking error:", error.message);
+
+            return res.status(500).json({
+                error: {
+                    code: "INTERNAL_ERROR",
+                    message: "Could not create booking"
+                }
+            });
+        } finally {
+            if (client) {
+                client.release();
+            }
+
+        }
 });
 
 
@@ -627,10 +634,14 @@ router.patch("/:id/cancel", authenticateToken, async (req, res) => {
         });
     }
 
-    const client = await pool.connect();
+        let client;
 
-    try {
-        await client.query("BEGIN");
+        try {
+            client = await pool.connect();
+
+            await client.query("BEGIN");
+
+    // Lock booking row
 
         // Find and lock the booking
         const result = await client.query(
@@ -731,8 +742,10 @@ router.patch("/:id/cancel", authenticateToken, async (req, res) => {
         });
 
     } finally {
+    if (client) {
         client.release();
     }
+}
 });
 
 // PATCH /api/bookings/:id/approve
@@ -757,12 +770,11 @@ router.patch("/:id/approve", authenticateToken, async (req, res) => {
             }
         });
     }
+        let client;
 
-    const client = await pool.connect();
-
-    try {
-        await client.query("BEGIN");
-
+        try {
+            client = await pool.connect();
+            await client.query("BEGIN");
         // Lock the booking row
         const result = await client.query(
             `SELECT id, status, start_time
@@ -833,21 +845,29 @@ router.patch("/:id/approve", authenticateToken, async (req, res) => {
             booking: updated.rows[0]
         });
 
-    } catch (error) {
-        await client.query("ROLLBACK");
-
-        console.error("Approve booking error:", error.message);
-
-        return res.status(500).json({
-            error: {
-                code: "INTERNAL_ERROR",
-                message: "Could not approve booking"
+    }  catch (error) {
+            if (client) {
+                try {
+                    await client.query("ROLLBACK");
+                } catch (rollbackError) {
+                    console.error("Rollback error:", rollbackError.message);
+                }
             }
-        });
 
-    } finally {
-        client.release();
-    }
+            console.error("Approve booking error:", error.message);
+
+            return res.status(500).json({
+                error: {
+                    code: "INTERNAL_ERROR",
+                    message: "Could not approve booking"
+                }
+            });
+        } finally {
+            if (client) {
+                client.release();
+            }
+
+        }
 });
 
 // PATCH /api/bookings/:id/reject
@@ -888,11 +908,11 @@ router.patch("/:id/reject", authenticateToken, async (req, res) => {
         });
     }
 
-    const client = await pool.connect();
+        let client;
 
-    try {
-        await client.query("BEGIN");
-
+        try {
+            client = await pool.connect();
+            await client.query("BEGIN");
         // Lock booking row
         const result = await client.query(
             `SELECT id, status, start_time
@@ -965,21 +985,28 @@ router.patch("/:id/reject", authenticateToken, async (req, res) => {
             booking: updated.rows[0]
         });
 
-    } catch (error) {
-        await client.query("ROLLBACK");
-
-        console.error("Reject booking error:", error.message);
-
-        return res.status(500).json({
-            error: {
-                code: "INTERNAL_ERROR",
-                message: "Could not reject booking"
+        } catch (error) {
+            if (client) {
+                try {
+                    await client.query("ROLLBACK");
+                } catch (rollbackError) {
+                    console.error("Rollback error:", rollbackError.message);
+                }
             }
-        });
 
-    } finally {
-        client.release();
-    }
+            console.error("Reject booking error:", error.message);
+
+            return res.status(500).json({
+                error: {
+                    code: "INTERNAL_ERROR",
+                    message: "Could not reject booking"
+                }
+            });
+        } finally {
+            if (client) {
+                client.release();
+            }
+        }
 });
 
 module.exports = router;
