@@ -6,7 +6,22 @@ import api from "../services/api";
 function TicketDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const token = localStorage.getItem("token");
 
+    let userRole = "";
+
+    if (token) {
+        try {
+            const payload = JSON.parse(
+                atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
+            );
+            userRole = payload.role;
+        } catch (error) {
+            console.error("Unable to read user role:", error);
+        }
+    }
+
+    const isAdmin = userRole === "ADMIN";
     const [ticket, setTicket] = useState(null);
     const [events, setEvents] = useState([]);
     const [category, setCategory] = useState("");
@@ -27,8 +42,13 @@ function TicketDetail() {
         console.log("Loading ticket ID:", id);
 
         const response = await api.get(`/tickets/${id}`);
-        const agentsResponse = await api.get("/admin/agents");
-        setAgents(agentsResponse.data.agents || []);
+
+        if (isAdmin) {
+            const agentsResponse = await api.get("/admin/agents");
+            setAgents(agentsResponse.data.agents || []);
+        } else {
+            setAgents([]);
+        }
         console.log("Ticket API response:", response.data);
 
         if (!response.data.ticket) {
@@ -77,12 +97,18 @@ useEffect(() => {
         setMessage("");
 
         try {
-            await api.patch(`/tickets/${id}`, {
-                category,
-                priority,
-                status,
-                assigneeId: assigneeId === "" ? null : Number(assigneeId)
-            });
+            const updateData = {
+            category,
+            priority,
+            status
+        };
+
+        if (isAdmin) {
+            updateData.assigneeId =
+                assigneeId === "" ? null : Number(assigneeId);
+        }
+
+        await api.patch(`/tickets/${id}`, updateData);
             
 
             setMessage("Ticket updated successfully.");
@@ -123,6 +149,20 @@ useEffect(() => {
             <div className="ticket-detail-card">
                 <h2>{ticket.subject}</h2>
                 <p>{ticket.body}</p>
+
+                <div className="ticket-assignee-info">
+                    <p>
+                        <strong>Assigned To:</strong>{" "}
+                        {ticket.assigneeName || "Unassigned"}
+                    </p>
+
+                    {ticket.assigneeEmail && (
+                        <p>
+                            <strong>Agent Email:</strong> {ticket.assigneeEmail}
+                        </p>
+                    )}
+                </div>
+
 
                 <p>
                     <strong>Automatically predicted category:</strong>{" "}

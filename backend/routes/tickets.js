@@ -281,6 +281,11 @@ router.get("/", authenticateToken, async (req, res) => {
             values.push(value);
             conditions.push(sql.replace("?", `$${values.length}`));
         }
+            // Regular users can only see tickets assigned to them.
+        if (req.user.role !== "ADMIN") {
+            addFilter("assignee_id = ?", req.user.id);
+        }
+        
 
         if (status) {
             addFilter("status = ?", status);
@@ -387,21 +392,24 @@ router.get("/:id", authenticateToken, async (req, res) => {
         // Fetch ticket details
         const ticketResult = await pool.query(
             `SELECT
-                id,
-                external_id AS "externalId",
-                subject,
-                body,
-                auto_category AS "autoCategory",
-                category,
-                is_human_override AS "isHumanOverride",
-                priority,
-                status,
-                assignee_id AS "assigneeId",
-                is_reviewed AS "isReviewed",
-                created_at AS "createdAt",
-                updated_at AS "updatedAt"
-             FROM tickets
-             WHERE id = $1`,
+                t.id,
+                t.external_id AS "externalId",
+                t.subject,
+                t.body,
+                t.auto_category AS "autoCategory",
+                t.category,
+                t.is_human_override AS "isHumanOverride",
+                t.priority,
+                t.status,
+                t.assignee_id AS "assigneeId",
+                u.name AS "assigneeName",
+                u.email AS "assigneeEmail",
+                t.is_reviewed AS "isReviewed",
+                t.created_at AS "createdAt",
+                t.updated_at AS "updatedAt"
+            FROM tickets t
+            LEFT JOIN users u ON t.assignee_id = u.id
+            WHERE t.id = $1`,
             [id]
         );
 
@@ -452,17 +460,13 @@ router.get("/:id", authenticateToken, async (req, res) => {
 router.patch("/:id", authenticateToken, async (req, res) => {
 
     // Admin authorization
-    if (req.user.role !== "ADMIN") {
-        return res.status(403).json({
-            error: {
-                code: "FORBIDDEN",
-                message: "Admin access is required"
-            }
-        });
-    }
-
     const { id } = req.params;
-    const allowedFields = ["category", "priority", "status", "assigneeId"];
+
+    const isAdmin = req.user.role === "ADMIN";
+
+    const allowedFields = isAdmin
+        ? ["category", "priority", "status", "assigneeId"]
+        : ["category", "priority", "status"];
     const client = await pool.connect();
 
     try {
@@ -571,7 +575,43 @@ router.patch("/:id", authenticateToken, async (req, res) => {
         }
 
         const oldTicket = ticketResult.rows[0];
+        // Regular users can only update tickets assigned to them.
+        if (
+            !isAdmin &&
+            Number(oldTicket.assignee_id) !== Number(req.user.id)
+        ) {
+            await client.query("ROLLBACK");
 
+            return res.status(403).json({
+                error: {
+                    code: "FORBIDDEN",
+                    message: "You can only review tickets assigned to you"
+                }
+            });
+        }
+        // Define allowed ticket status transitions
+        const allowedTransitions = {
+            OPEN: ["IN_PROGRESS", "RESOLVED"],
+            IN_PROGRESS: ["OPEN", "RESOLVED"],
+            RESOLVED: ["IN_PROGRESS", "CLOSED"],
+            CLOSED: ["OPEN"]
+        };
+
+        // Validate status transition
+        if (
+            updates.status !== undefined &&
+            updates.status !== oldTicket.status &&
+            !allowedTransitions[oldTicket.status]?.includes(updates.status)
+        ) {
+            await client.query("ROLLBACK");
+
+            return res.status(400).json({
+                error: {
+                    code: "INVALID_STATUS_TRANSITION",
+                    message: `Cannot change ticket status from ${oldTicket.status} to ${updates.status}`
+                }
+            });
+        }
         // Check whether the assigned user exists
         if (
             updates.assigneeId !== undefined &&
