@@ -28,6 +28,70 @@ router.post("/import", authenticateToken, async (req, res) => {
         });
     }
 
+    
+
+
+    // Validate all tickets before starting the database transaction
+    const validatedTickets = [];
+    const seenExternalIds = new Set();
+
+    for (let index = 0; index < tickets.length; index++) {
+        const ticket = tickets[index];
+
+        if (
+            !ticket ||
+            typeof ticket !== "object" ||
+            Array.isArray(ticket)
+        ) {
+            return res.status(400).json({
+                error: {
+                    code: "VALIDATION_ERROR",
+                    message: `Ticket at position ${index + 1} must be a valid object`
+                }
+            });
+        }
+
+        const { externalId, subject, body } = ticket;
+
+        if (
+            typeof externalId !== "string" ||
+            !externalId.trim() ||
+            typeof subject !== "string" ||
+            subject.trim().length < 3 ||
+            subject.trim().length > 150 ||
+            typeof body !== "string" ||
+            body.trim().length < 5 ||
+            body.trim().length > 2000
+        ) {
+            return res.status(400).json({
+                error: {
+                    code: "VALIDATION_ERROR",
+                    message: `Invalid ticket data at position ${index + 1}`
+                }
+            });
+        }
+
+        const cleanExternalId = externalId.trim();
+
+        if (seenExternalIds.has(cleanExternalId)) {
+            return res.status(400).json({
+                error: {
+                    code: "VALIDATION_ERROR",
+                    message: `Duplicate external ID: ${cleanExternalId}`
+                }
+            });
+        }
+
+        seenExternalIds.add(cleanExternalId);
+
+        validatedTickets.push({
+            externalId: cleanExternalId,
+            subject: subject.trim(),
+            body: body.trim()
+        });
+    }
+
+
     const client = await pool.connect();
 
     let importedCount = 0;
@@ -37,26 +101,12 @@ router.post("/import", authenticateToken, async (req, res) => {
     try {
         await client.query("BEGIN");
 
-        for (const ticket of tickets) {
+        for (const ticket of validatedTickets) {
             const { externalId, subject, body } = ticket;
 
-            if (
-                typeof externalId !== "string" ||
-                !externalId.trim() ||
-                typeof subject !== "string" ||
-                subject.trim().length < 3 ||
-                subject.trim().length > 150 ||
-                typeof body !== "string" ||
-                body.trim().length < 5 ||
-                body.trim().length > 2000
-            ) {
-                throw new Error("INVALID_TICKET_DATA");
-            }
-
-            const id = externalId.trim();
-            const cleanSubject = subject.trim();
-            const cleanBody = body.trim();
-
+            const id = externalId;
+            const cleanSubject = subject;
+            const cleanBody = body;
             const prediction = classifyTicket(cleanSubject, cleanBody);
 
             const existing = await client.query(
@@ -121,20 +171,13 @@ router.post("/import", authenticateToken, async (req, res) => {
             importedCount,
             updatedCount,
             skippedOverrideCount,
-            total: tickets.length
+            total: validatedTickets.length
         });
 
     } catch (error) {
         await client.query("ROLLBACK");
 
-        if (error.message === "INVALID_TICKET_DATA") {
-            return res.status(400).json({
-                error: {
-                    code: "VALIDATION_ERROR",
-                    message: "One or more tickets have invalid data"
-                }
-            });
-        }
+
 
         console.error("Ticket import error:", error.message);
 
