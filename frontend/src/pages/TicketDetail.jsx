@@ -16,6 +16,8 @@ function TicketDetail() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
     const [message, setMessage] = useState("");
+    const [agents, setAgents] = useState([]);
+    const [assigneeId, setAssigneeId] = useState("");
 
     async function loadTicket() {
     setLoading(true);
@@ -25,7 +27,8 @@ function TicketDetail() {
         console.log("Loading ticket ID:", id);
 
         const response = await api.get(`/tickets/${id}`);
-
+        const agentsResponse = await api.get("/admin/agents");
+        setAgents(agentsResponse.data.agents || []);
         console.log("Ticket API response:", response.data);
 
         if (!response.data.ticket) {
@@ -35,6 +38,9 @@ function TicketDetail() {
         const ticketData = response.data.ticket;
 
         setTicket(ticketData);
+        setAssigneeId(
+            ticketData.assigneeId ? String(ticketData.assigneeId) : ""
+        );
         setEvents(Array.isArray(response.data.events)
             ? response.data.events
             : []);
@@ -74,8 +80,10 @@ useEffect(() => {
             await api.patch(`/tickets/${id}`, {
                 category,
                 priority,
-                status
+                status,
+                assigneeId: assigneeId === "" ? null : Number(assigneeId)
             });
+            
 
             setMessage("Ticket updated successfully.");
             await loadTicket();
@@ -150,7 +158,19 @@ useEffect(() => {
                         <option value="LOGIN">Login</option>
                         <option value="DELIVERY">Delivery</option>
                     </select>
+                    <label>Assign To</label>
+                    <select
+                        value={assigneeId}
+                        onChange={(e) => setAssigneeId(e.target.value)}
+                    >
+                        <option value="">Unassigned</option>
 
+                        {agents.map((agent) => (
+                            <option key={agent.id} value={agent.id}>
+                                {agent.name} ({agent.email})
+                            </option>
+                        ))}
+                    </select>
                     <label>Priority</label>
                     <select
                         value={priority}

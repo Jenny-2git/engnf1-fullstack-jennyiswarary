@@ -94,4 +94,41 @@ router.get("/stats", authenticateToken, async (req, res) => {
     }
 });
 
+
+// GET /api/admin/agents
+router.get("/agents", authenticateToken, async (req, res) => {
+    if (req.user.role !== "ADMIN") {
+        return res.status(403).json({
+            error: {
+                code: "FORBIDDEN",
+                message: "Admin access is required"
+            }
+        });
+    }
+
+    try {
+        const result = await pool.query(
+            `SELECT id, name, email
+             FROM users
+             WHERE role = 'USER'
+             ORDER BY name ASC`
+        );
+
+        return res.status(200).json({
+            agents: result.rows
+        });
+    } catch (error) {
+        console.error("Agent list error:", error.message);
+
+        return res.status(500).json({
+            error: {
+                code: "INTERNAL_SERVER_ERROR",
+                message: "Failed to fetch agents"
+            }
+        });
+    }
+});
+
+
+
 module.exports = router;
